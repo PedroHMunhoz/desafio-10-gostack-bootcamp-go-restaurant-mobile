@@ -73,34 +73,88 @@ const FoodDetails: React.FC = () => {
 
   useEffect(() => {
     async function loadFood(): Promise<void> {
-      // Load a specific food with extras based on routeParams id
+      // Busca na API detalhes da comida, passando o ID
+      const response = await api.get(`foods/${routeParams.id}`);
+
+      // Seta a comida selecionada no state, formatando seu preço
+      setFood({
+        ...response.data,
+        formattedPrice: formatValue(response.data.price),
+      });
+
+      // Seta os extras conforme a comida selecionada, fazendo um map para setar a quantidade para 0 em cada um
+      setExtras(
+        response.data.extras.map((extra: Omit<Extra, 'quantity'>) => ({
+          ...extra,
+          quantity: 0,
+        })),
+      );
     }
 
     loadFood();
   }, [routeParams]);
 
   function handleIncrementExtra(id: number): void {
-    // Increment extra quantity
+    // Ao clicar no + dos Extras, incrementa a quantidade se achar o mesmo no array
+    setExtras(
+      extras.map(extra =>
+        extra.id === id ? { ...extra, quantity: extra.quantity + 1 } : extra,
+      ),
+    );
   }
 
   function handleDecrementExtra(id: number): void {
-    // Decrement extra quantity
+    // Procura no array de extras o que foi clicado
+    const findExtra = extras.find(extra => extra.id === id);
+
+    // Se não encontrar, sai do método
+    if (!findExtra) return;
+
+    // Se a quantidade for zerada,sai do método sem recalcular os dados
+    if (findExtra.quantity === 0) return;
+
+    // Seta no estado o valor do extra com a nova quantiade decrementada
+    setExtras(
+      extras.map(extra =>
+        extra.id === id ? { ...extra, quantity: extra.quantity - 1 } : extra,
+      ),
+    );
   }
 
   function handleIncrementFood(): void {
-    // Increment food quantity
+    // Seta a quantidade em +1, atualizando o state
+    setFoodQuantity(foodQuantity + 1);
   }
 
   function handleDecrementFood(): void {
-    // Decrement food quantity
+    // Se a quantidade for maior que 1, seta em -1 atualizando o state
+    // isso é pra evitar zerar a quantidade no carrinho
+    if (foodQuantity > 1) setFoodQuantity(foodQuantity - 1);
   }
 
   const toggleFavorite = useCallback(() => {
-    // Toggle if food is favorite or not
+    // Ao clicar no favorito, se ele já for, envia um delete pra API pra tirar o status de lá
+    if (isFavorite) {
+      api.delete(`/favorites/${food.id}`);
+    } else {
+      // Se não, envia um post setando ele como favorito lá
+      api.post(`/favorites`, food);
+    }
+
+    // Atualiza o favorito no state, para atualizar na DOM o botão
+    setIsFavorite(!isFavorite);
   }, [isFavorite, food]);
 
   const cartTotal = useMemo(() => {
-    // Calculate cartTotal
+    // Calcula o total dos produtos multiplicando a quantidade total X valor de venda de cada
+    const productsTotal = food.price * foodQuantity;
+
+    // Percorre o array de extras selecionados multiplicando seu valor pela quantidade e somando o total de tudo
+    const extrasValue = extras.reduce((sum, extra) => {
+      return sum + extra.quantity * extra.value;
+    }, 0);
+
+    return productsTotal + (!isNaN(extrasValue) ? extrasValue : 0);
   }, [extras, food, foodQuantity]);
 
   async function handleFinishOrder(): Promise<void> {
@@ -163,7 +217,7 @@ const FoodDetails: React.FC = () => {
                   testID={`decrement-extra-${extra.id}`}
                 />
                 <AdittionalItemText testID={`extra-quantity-${extra.id}`}>
-                  {extra.quantity}
+                  {extra.quantity ?? 0}
                 </AdittionalItemText>
                 <Icon
                   size={15}
@@ -179,7 +233,9 @@ const FoodDetails: React.FC = () => {
         <TotalContainer>
           <Title>Total do pedido</Title>
           <PriceButtonContainer>
-            <TotalPrice testID="cart-total">{cartTotal}</TotalPrice>
+            <TotalPrice testID="cart-total">
+              {formatValue(cartTotal)}
+            </TotalPrice>
             <QuantityContainer>
               <Icon
                 size={15}

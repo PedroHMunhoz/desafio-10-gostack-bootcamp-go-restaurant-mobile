@@ -54,27 +54,48 @@ const Dashboard: React.FC = () => {
   const navigation = useNavigation();
 
   async function handleNavigate(id: number): Promise<void> {
-    // Navigate do ProductDetails page
+    // Implementa a navegação para a página de detalhes do produto escolhido
+    navigation.navigate('FoodDetails', {
+      id,
+    });
   }
 
   useEffect(() => {
     async function loadFoods(): Promise<void> {
-      // Load Foods from API
+      // Buscando as comidas da API fake, passando categoria e pesquisa por texto
+      const foodsResponse = await api.get('foods', {
+        params: {
+          category_like: selectedCategory,
+          name_like: searchValue,
+        },
+      });
+
+      // Buscando as categorias na API
+      const categoriesResponse = await api.get('categories');
+
+      // Colocando as categorias no state
+      setCategories(categoriesResponse.data);
+
+      // Setando as comidas buscadas da API no state, com o preço formatado para exibir
+      setFoods(
+        foodsResponse.data.map((food: Food) => ({
+          ...food,
+          formattedPrice: formatValue(food.price),
+        })),
+      );
     }
 
     loadFoods();
   }, [selectedCategory, searchValue]);
 
-  useEffect(() => {
-    async function loadCategories(): Promise<void> {
-      // Load categories from API
+  async function handleSelectCategory(id: number): Promise<void> {
+    // Seta a categoria selecionada no state
+    setSelectedCategory(id);
+
+    // Se clicar novamente na mesma que está selecionada, desseleciona ela e limpa o state
+    if (id === selectedCategory) {
+      setSelectedCategory(undefined);
     }
-
-    loadCategories();
-  }, []);
-
-  function handleSelectCategory(id: number): void {
-    // Select / deselect category
   }
 
   return (
